@@ -36,9 +36,12 @@ EXTIPADDR=`dig +short myip.opendns.com @resolver1.opendns.com`
 ISP=`geoiplookup ${EXTIPADDR} |grep ASN|cut -d: -f2`
 UPTIME=`uptime |cut -d, -f-2|cut -d\  -f4-`
 #UPTIME=`awk '{print int($1/86400)" day(s) "int($1%86400/3600)":"int(($1%3600)/60)":`
-UPRECORDS=`uprecords| grep -e "->   1"|cut -d\| -f1|cut -d\  -f9-`
+UPRECORDS=`uprecords| grep -e "   1"|cut -d\| -f1|cut -d\  -f9-|head -n 1`
 
 LOAD=`cat /proc/loadavg | awk '{print $1}'`
+CORES=`grep 'model name' /proc/cpuinfo | wc -l`
+LOADPER=`echo ${LOAD} ${CORES} | awk '{print $1 / $2 * 100}' | cut -d. -f1`
+
 DISK=`df -h / | awk '{ a = $2 } END { print a }'`
 DISKUSED=`df -h / | awk '{ a = $3 } END { print a }'`
 DISKFREE=`df -h / | awk '{ a = $4 } END { print a }'`
@@ -46,19 +49,25 @@ DISKPER=`df -h / | awk '/\// {print $(NF-1)}'`
 MEMORY=`free -gh --si | head -n 2 | tail -n 1 | awk {'print $2'}`
 MEMUSED=`free -gh --si | head -n 2 | tail -n 1 | awk {'print $3'}`
 MEMFREE=`free -gh --si | head -n 2 | tail -n 1 | awk {'print $4'}`
-MEMPER=`free -gh --si | awk '/Mem/ { printf("%3.1f%%", $3/$2*100) }'`
+MEMPER=`free -m | awk '/Mem/ { printf("%3.1f%%", $3/$2*100) }'`
 SWAP=`free -gh --si | tail -n 1 |awk {'print  $2'}`
 SWAPUSED=`free -gh --si | tail -n 1 | awk {'print $3'}`
 SWAPFREE=`free -gh --si | tail -n 1 | awk {'print $4'}`
-SWAPPER=`free -gh --si | awk '/Swap/ { printf("%3.1f%%", $3/$2*100) }'`
-LASTDAY=`lastlog -u geoff| tail -n 1| cut -d\  -f17`
-LASTDATE=`lastlog -u geoff| tail -n 1| cut -d\  -f19`
-LASTMONTH=`lastlog -u geoff| tail -n 1| cut -d\  -f18`
-LASTTIME=`lastlog -u geoff| tail -n 1| cut -d\  -f20`
-LASTYEAR=`lastlog -u geoff| tail -n 1| cut -d\  -f22`
-LASTLOG="${LASTDAY} ${LASTYEAR}/${LASTMONTH}/${LASTDATE} ${LASTTIME} from "
+SWAPPER=`free -m | awk '/Swap/ { printf("%3.1f%%", $3/$2*100) }'`
+
+echo $USERNAME
+USERNAME=`whoami`
+LASTDAY=`lastlog -u ${USERNAME} | tail -n 1| cut -d\  -f17`
+LASTDATE=`lastlog -u ${USERNAME} | tail -n 1| cut -d\  -f19`
+LASTMONTH=`lastlog -u ${USERNAME} | tail -n 1| cut -d\  -f18`
+LASTTIME=`lastlog -u ${USERNAME} | tail -n 1| cut -d\  -f20`
+LASTYEAR=`lastlog -u ${USERNAME} | tail -n 1| cut -d\  -f22`
+LASTFROM=`lastlog -u ${USERNAME} | tail -n 1| cut -d\  -f20`
+LASTLOG="${LASTDAY} ${LASTYEAR}/${LASTMONTH}/${LASTDATE} ${LASTTIME} from ${LASTFROM}"
 
 # Gather Hardware Information
+CPUTEMPC=` sensors|grep CPU |cut -d: -f2`
+CPUTEMP=` sensors -f | grep CPU | cut -d: -f2`
 SDATEMP=`/usr/sbin/hddtemp -uf /dev/sda|cut -c 36-`
 SDBTEMP=`/usr/sbin/hddtemp -uf /dev/sdb|cut -c 36-`
 CPU=`cat /proc/cpuinfo | grep 'model name' | head -1 | cut -d':' -f2`
@@ -66,6 +75,15 @@ CPU=`cat /proc/cpuinfo | grep 'model name' | head -1 | cut -d':' -f2`
 MEMPER2=`echo ${MEMPER} |cut -d. -f1`
 SWAPPER2=`echo ${SWAPPER} |cut -d. -f1`
 DISKPER2=`echo ${DISKPER}|cut -d% -f1`
+
+if [ ${LOADPER} -lt 75 ]; then
+    LC=${GREEN}
+elif [ ${LOADPER} -ge 75 ] && [ ${LOADPER} -lt 90 ]; then
+    LC=${YELLOW}
+else
+    LC=${RED}
+fi
+
 
 if [ ${MEMPER2} -lt 75 ]; then
     MC=${GREEN}
@@ -93,12 +111,12 @@ echo "Distribution ..: ${DISTRIB_DESCRIPTION}"
 echo "OS.............: ${KERNEL} ${OPERATING_SYSTEM}"
 echo "Last Login.....: ${LASTLOG}"
 echo "Uptime.........: ${UPTIME} Record: ${UPRECORDS}"
-echo "Load...........: ${LOAD}"
+echo "Load...........: ${LC}${LOAD} ${LOADPER}%${DC}"
 echo "Memory.........: ${MC}${MEMORY} ${MEMUSED}/${MEMFREE} ${MEMPER}${DC}"
 echo "Swap...........: ${SC}${SWAP} ${SWAPUSED}/${SWAPFREE} ${SWAPPER}${DC}"
 echo "Disk Usage.....: ${HC}${DISK} ${DISKUSED}/${DISKFREE} ${DISKPER}${DC}"
 echo "CPU............:${CPU}"
-echo "Temperature....: CORE: MB: GPU: CPU:"
+echo "Temperature....: CPU: ${CPUTEMP} ${CPITEMPC} CORE: MB: GPU: CPU:"
 echo "Temperature....: SBA:${SDATEMP} SDB:${SDBTEMP}"
 echo "Ext IP Address.: ${EXTIPADDR}  IP Address: ${IPADDR}"
 echo "ISP............:${ISP}"
